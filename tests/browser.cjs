@@ -120,6 +120,14 @@ async function writeNote(p,title,body=title){await p.locator('[data-view="notes"
   assert.equal(documents.get('user-a').data.notes.length,3,'logout must retain records');
   assert.deepEqual(errors,[]);
   console.log('PASS: real Chromium UI, guest migration, two devices, mobile, literal HTML, completion/PNG, offline reload, stale edit protection, history, account isolation.');
+  const realContext=await browser.newContext();
+  const realPage=await realContext.newPage();
+  await realPage.goto(url);
+  await until(()=>realPage.evaluate(()=>typeof globalThis.supabase?.createClient==='function'),'real Supabase SDK CDN');
+  await until(()=>realPage.locator('#cloud-strip').getAttribute('data-state').then(x=>x==='local'),'real SDK guest initialization');
+  assert.equal(await realPage.locator('#account-message').textContent(),'','real login service must initialize');
+  await realContext.close();
+  console.log('PASS: pinned Supabase SDK loads and initializes in real Chromium.');
   const vm=require('node:vm'),ctx={};vm.runInNewContext(await fs.readFile(path.join(root,'cloud-config.js'),'utf8'),ctx);
   const cfg=ctx.JOURNAL_CLOUD_CONFIG;
   const response=await fetch(cfg.url+'/rest/v1/rpc/journal_read_v1',{method:'POST',headers:{apikey:cfg.publishableKey,'Content-Type':'application/json'},body:'{}'});
