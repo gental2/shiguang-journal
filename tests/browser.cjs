@@ -57,7 +57,7 @@ async function openAccount(p){if(!await p.locator('#account').evaluate(x=>x.open
 async function closeAccount(p){if(await p.locator('#account').evaluate(x=>x.open))await p.locator('[data-close="account"]').click();}
 async function login(p,email){await openAccount(p);await p.locator('#auth-email').fill(email);await p.locator('#auth-password').fill('test-password-only');await p.locator('#auth-submit').click();await synced(p);await closeAccount(p);}
 async function sync(p){await openAccount(p);await p.locator('[data-cloud-action="sync"]').click();await synced(p);await closeAccount(p);}
-async function writeNote(p,title,body=title){await p.locator('[data-action="new-note"]').first().click();await p.locator('#edit-title').fill(title);await p.locator('#edit-content').fill(body);await p.locator('#editor-form [type="submit"]').click();}
+async function writeNote(p,title,body=title){await p.locator('[data-view="notes"]').click();await p.locator('#create-btn').click();await p.locator('#edit-title').fill(title);await p.locator('#edit-content').fill(body);await p.locator('#editor-form [type="submit"]').click();}
 (async()=>{
  await new Promise(r=>server.listen(0,'127.0.0.1',r));
  const url='http://127.0.0.1:'+server.address().port;
@@ -81,7 +81,7 @@ async function writeNote(p,title,body=title){await p.locator('[data-action="new-
   await synced(p);await sync(q);
   assert.equal(await q.locator('#stat-notes').textContent(),'2');
   assert.equal(await q.evaluate(()=>window.bad),undefined,'stored HTML must not execute');
-  await p.locator('[data-action="new-goal"]').first().click();await p.locator('#edit-title').fill('看一次日出');
+  await p.locator('[data-view="goals"]').click();await p.locator('#create-btn').click();await p.locator('#edit-title').fill('看一次日出');
   await p.locator('#editor-form [type="submit"]').click();await synced(p);
   await p.locator('[data-view="goals"]').click();await p.locator('[data-action="toggle-goal"]').first().click();await synced(p);
   await sync(q);await q.locator('#preview-btn').click();
