@@ -161,7 +161,7 @@ async function writeNote(p,title,body=title){await p.locator('[data-view="notes"
   assert.equal(await r.locator('#auth-email').inputValue(),'person@example.invalid');
   assert.equal(await r.locator('#auth-password').inputValue(),'','password must never be persisted');
   await r.clock.resume();
-  await login(r,'a@example.invalid');
+  await login(r,'person@example.invalid');
   assert.equal(await r.locator('#verification-status').evaluate(el=>el.hidden),true,'logged-in users no longer see pending verification');
   await registration.close();
   console.log('PASS: signup duplicate prevention, Chinese countdown, refresh persistence, mail quota hint, durable verification stage, password privacy, login during email cooldown.');
