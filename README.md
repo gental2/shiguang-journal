@@ -24,7 +24,7 @@ Authentication → URL Configuration:
 - Site URL: `https://gental2.github.io/shiguang-journal/`
 - Redirect URLs 添加上述同一个完整地址。
 
-邮箱密码登录需要先注册并验证邮箱。Supabase 默认邮件服务限制较多，建议项目所有者先使用其 Supabase 账号的邮箱；更广泛使用须配置自己的 SMTP。Free 项目仍受服务方配额、可用性和暂停政策影响；保留导出备份。
+邮箱密码登录需要先注册并验证邮箱。网站会保留待验证提示；邮件请求显示冷却倒计时，请求处理中禁止重复提交。发送额度耗尽时会提示检查已有验证邮件，登录不受邮件冷却影响。Supabase 默认邮件服务限制较多，建议项目所有者先使用其 Supabase 账号的邮箱；更广泛使用须配置自己的 SMTP。Free 项目仍受服务方配额、可用性和暂停政策影响；保留导出备份。
 
 ## 运行与测试
 

@@ -41,7 +41,11 @@ function mockSdk(){
     async getSession(){return {data:{session:current?{user:current}:null},error:null};},
     async signInWithPassword({email}){current={id:email.startsWith('a@')?'user-a':'user-b',email};localStorage.setItem('test-session',JSON.stringify(current));emit('SIGNED_IN');return {data:{},error:null};},
     async signOut(){current=null;localStorage.removeItem('test-session');emit('SIGNED_OUT');return {error:null};},
-    async signUp(){return {data:{session:null},error:null};},
+    async signUp(){
+     window.__signupCalls=(window.__signupCalls||0)+1;
+     if(window.__delaySignup)await new Promise(resolve=>window.__finishSignup=resolve);
+     return window.__signupReply||{data:{user:{id:'signup-test',aud:'authenticated',email:'person@example.invalid',app_metadata:{provider:'email',providers:['email']},user_metadata:{},created_at:'2026-10-09T00:00:00Z',identities:[]},session:null},error:null};
+    },
     async updateUser(){return {error:null};},
     async resetPasswordForEmail(){return {error:null};}
    },
@@ -118,6 +122,49 @@ async function writeNote(p,title,body=title){await p.locator('[data-view="notes"
   assert.equal(await q.locator('#stat-notes').textContent(),'0','other account isolated');
   assert.equal(await q.locator('#stat-total').textContent(),'0');
   assert.equal(documents.get('user-a').data.notes.length,3,'logout must retain records');
+  // Regression: server rate-limit response must become a countdown and block duplicate email requests.
+  const registration=await browser.newContext(),r=await registration.newPage();
+  await registration.addInitScript(mockSdk);
+  await r.clock.install({time:new Date('2026-10-09T00:00:00Z')});
+  await r.clock.pauseAt(new Date('2026-10-09T00:00:01Z'));
+  await r.goto(url);await openAccount(r);
+  await r.locator('#auth-email').fill('person@example.invalid');await r.locator('#auth-password').fill('test-password-only');
+  await r.evaluate(()=>window.__signupReply={data:{user:null,session:null},error:{name:'AuthApiError',status:429,code:'over_email_send_rate_limit',message:'For security purposes, you can only request this after 34 seconds.'}});
+  await r.locator('[data-cloud-action="sign-up"]').click();
+  await until(()=>r.locator('#account-message').textContent().then(x=>/34.*秒/.test(x)),'Chinese rate-limit countdown');
+  assert.equal(await r.locator('[data-cloud-action="sign-up"]').isDisabled(),true);
+  assert.equal(await r.locator('#auth-submit').isDisabled(),false,'email cooldown must not block login');
+  await r.evaluate(()=>{document.querySelector('[data-cloud-action="sign-up"]').dispatchEvent(new MouseEvent('click',{bubbles:true}));});
+  assert.equal(await r.evaluate(()=>window.__signupCalls),1,'cooldown must prevent second request');
+  await r.clock.fastForward(1000);
+  assert.match(await r.locator('#account-message').textContent(),/33.*秒/);
+  await r.reload();await openAccount(r);
+  assert.equal(await r.locator('[data-cloud-action="sign-up"]').isDisabled(),true,'refresh must retain cooldown');
+  await r.clock.fastForward(33000);
+  assert.equal(await r.locator('[data-cloud-action="sign-up"]').isDisabled(),false);
+  await r.locator('#auth-email').fill('person@example.invalid');await r.locator('#auth-password').fill('test-password-only');
+  await r.evaluate(()=>window.__signupReply={data:{user:null,session:null},error:{name:'AuthApiError',status:429,code:'over_email_send_rate_limit',message:'email rate limit exceeded'}});
+  await r.locator('[data-cloud-action="sign-up"]').click();
+  await until(()=>r.locator('#account-message').textContent().then(x=>/额度.*上限/.test(x)),'email quota explanation');
+  assert.match(await r.locator('#account-message').textContent(),/收件箱.*垃圾邮件/);
+  await r.clock.fastForward(60000);
+  await r.evaluate(()=>{window.__signupReply=null;window.__delaySignup=true;});
+  await r.locator('[data-cloud-action="sign-up"]').click();
+  assert.equal(await r.locator('#auth-submit').isDisabled(),true,'request in progress must block repeated submission');
+  await r.evaluate(()=>document.querySelector('[data-cloud-action="sign-up"]').dispatchEvent(new MouseEvent('click',{bubbles:true})));
+  assert.equal(await r.evaluate(()=>window.__signupCalls),2,'one failed quota request and one in-progress request since reload');
+  await r.evaluate(()=>window.__finishSignup());
+  await until(()=>r.locator('#verification-status').isVisible(),'persistent pending verification status');
+  assert.match(await r.locator('#account-message').textContent(),/无需再次注册/);
+  await r.reload();await openAccount(r);
+  assert.equal(await r.locator('#verification-status').isVisible(),true,'verification step survives refresh');
+  assert.equal(await r.locator('#auth-email').inputValue(),'person@example.invalid');
+  assert.equal(await r.locator('#auth-password').inputValue(),'','password must never be persisted');
+  await r.clock.resume();
+  await login(r,'a@example.invalid');
+  assert.equal(await r.locator('#verification-status').evaluate(el=>el.hidden),true,'logged-in users no longer see pending verification');
+  await registration.close();
+  console.log('PASS: signup duplicate prevention, Chinese countdown, refresh persistence, mail quota hint, durable verification stage, password privacy, login during email cooldown.');
   assert.deepEqual(errors,[]);
   console.log('PASS: real Chromium UI, guest migration, two devices, mobile, literal HTML, completion/PNG, offline reload, stale edit protection, history, account isolation.');
   const realContext=await browser.newContext();

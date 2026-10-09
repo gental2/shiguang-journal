@@ -5,6 +5,65 @@
   let client, engine, user = null, callbacks, workspaceKey = LEGACY, epoch = 0, timer, ready = false, recovery = false, blockedRaw = null;
   let currentStatus = {kind:'local',message:'未登录 · 记录保存在此浏览器'};
   const project = config.url ? new URL(config.url).hostname.split('.')[0] : 'unconfigured';
+  const MAIL_WAIT_KEY = 'shiguang-journal-mail-wait-v1:' + project;
+  let authBusy = false, mailUntil = 0, mailTimer = null, showMailCountdown = false;
+  const PENDING_EMAIL_KEY = 'shiguang-journal-verification-v1:' + project;
+  let pendingVerification = null;
+  function verificationUI() {
+    const email = $('#auth-email').value.trim().toLowerCase();
+    const visible = !user && pendingVerification && (!email || email === pendingVerification.email.toLowerCase());
+    $('#verification-status').hidden = !visible;
+    if (pendingVerification) {
+      $('#verification-heading').textContent = pendingVerification.known ? '账号已创建 · 等待验证邮箱' : '注册申请已提交 · 等待验证邮箱';
+      $('#verification-description').textContent = '请检查 ' + pendingVerification.email + ' 的收件箱和垃圾邮件，点击验证邮件中的确认链接，再回来用邮箱和密码登录。若已经验证，请直接登录，无需再次注册。';
+    }
+  }
+  function rememberVerification(email,known = false) {
+    pendingVerification = {email:email.trim(),known};
+    try { localStorage.setItem(PENDING_EMAIL_KEY,JSON.stringify(pendingVerification)); } catch (_) {}
+    verificationUI();
+  }
+  function restoreVerification() {
+    try {
+      const p = JSON.parse(localStorage.getItem(PENDING_EMAIL_KEY) || 'null');
+      if (p && typeof p.email === 'string' && p.email.length <= 254 && p.email.includes('@')) {
+        pendingVerification = {email:p.email,known:p.known === true};
+        if (!$('#auth-email').value) $('#auth-email').value = p.email;
+      }
+    } catch (_) {}
+    verificationUI();
+  }
+  function mailSeconds() { return Math.max(0,Math.ceil((mailUntil - Date.now()) / 1000)); }
+  function authButtons() {
+    const seconds = mailSeconds();
+    $('#auth-submit').disabled = authBusy;
+    $('#auth-form').setAttribute('aria-busy',String(authBusy));
+    const register = $('[data-cloud-action="sign-up"]'), forgot = $('[data-cloud-action="forgot"]');
+    register.disabled = forgot.disabled = authBusy || seconds > 0;
+    register.textContent = seconds ? '注册新账号（' + seconds + ' 秒）' : '注册新账号';
+    forgot.textContent = seconds ? '忘记密码（' + seconds + ' 秒）' : '忘记密码';
+    if (showMailCountdown) {
+      accountMessage(seconds ? '验证邮件请求过于频繁，请再等 ' + seconds + ' 秒。若已收到邮件，请直接验证后登录。' : '等待时间已结束。若已收到邮件，请点击验证链接后登录，无需再次注册。',seconds > 0);
+      if (!seconds) showMailCountdown = false;
+    }
+    if (!seconds && mailTimer) { clearInterval(mailTimer); mailTimer = null; }
+  }
+  function waitForMail(seconds,showCountdown = false) {
+    mailUntil = Date.now() + Math.max(1,Math.min(3600,seconds)) * 1000;
+    showMailCountdown = showCountdown;
+    try { localStorage.setItem(MAIL_WAIT_KEY,String(mailUntil)); } catch (_) {}
+    if (!mailTimer) mailTimer = setInterval(authButtons,1000);
+    authButtons();
+  }
+  function restoreMailWait() {
+    try {
+      const deadline = Number(localStorage.getItem(MAIL_WAIT_KEY));
+      if (Number.isFinite(deadline) && deadline > Date.now() && deadline <= Date.now() + 3600000) {
+        mailUntil = deadline; mailTimer = setInterval(authButtons,1000);
+      }
+    } catch (_) {}
+    authButtons();
+  }
   function accountMessage(text, bad = false) {
     $('#account-message').textContent = text; $('#account-message').classList.toggle('form-error', bad);
   }
@@ -38,6 +97,7 @@
       ? '感悟与人生清单保存在 Supabase 私有账号中。只有显示「已同步到云端」的内容已上传成功；网络断开时先保存在本机，恢复联网后自动重试。网站升级不会清空云端记录。'
       : '未登录时，数据保存在当前浏览器。登录后可以将这些记录导入云端账号；换设备请登录同一账号。';
     $('#backup-storage-label').textContent = user ? '私有账号 · 云同步 + 本机缓存' : '未登录 · 本机保存';
+    verificationUI();
   }
   function schedule() { clearTimeout(timer); timer = setTimeout(() => { if (engine) engine.sync(); }, 650); }
   async function assertAccount(id) {
@@ -46,6 +106,13 @@
     if (!data.session || data.session.user.id !== id) throw new Error('登录状态已变化，请重新登录。');
   }
   async function activate(nextUser) {
+    if (nextUser) {
+      showMailCountdown = false;
+      if (pendingVerification?.email.toLowerCase() === nextUser.email?.toLowerCase()) {
+        pendingVerification = null;
+        try { localStorage.removeItem(PENDING_EMAIL_KEY); } catch (_) {}
+      }
+    }
     if (nextUser && user && nextUser.id === user.id && workspaceKey !== LEGACY) { user = nextUser; accountUI(); return; }
     const generation = ++epoch;
     clearTimeout(timer); if (engine) engine.dispose();
@@ -121,16 +188,31 @@
   }
   function translate(error) {
     const text = error?.message || String(error || '请求失败');
-    if (/Invalid login credentials/i.test(text)) return '邮箱或密码不正确。';
-    if (/Email not confirmed/i.test(text)) return '请先点击邮件里的验证链接，再登录。';
-    if (/rate limit|too many requests/i.test(text)) return '请求太频繁，请稍后再试；邮件服务也可能达到发送限制。';
+    const seconds = /after\s+(\d+)\s+seconds?/i.exec(text);
+    if (seconds && Number(seconds[1]) > 0) {
+      waitForMail(Number(seconds[1]),true);
+      return '验证邮件请求过于频繁，请再等 ' + mailSeconds() + ' 秒。若已收到邮件，请直接验证后登录。';
+    }
+    if (error?.code === 'over_email_send_rate_limit' || /email rate limit exceeded/i.test(text)) {
+      waitForMail(60);
+      return '邮件发送额度已达上限。请先检查收件箱和垃圾邮件；已有验证邮件可直接使用。若没有邮件，请稍后再试。';
+    }
+    if (error?.code === 'email_not_confirmed' || /Email not confirmed/i.test(text)) {
+      rememberVerification($('#auth-email').value,true);
+      return '邮箱尚未验证。请先点击验证邮件中的确认链接，再回来登录，无需重新注册。';
+    }
+    if (error?.code === 'email_address_not_authorized') return '默认邮件服务暂时只支持项目成员的邮箱。请使用注册 Supabase 时的邮箱，或配置自己的邮件服务。';
+    if (error?.code === 'email_address_invalid') return '邮箱地址无效，请检查填写内容。';
+    if (error?.code === 'invalid_credentials' || /Invalid login credentials/i.test(text)) return '邮箱或密码不正确。';
+    if (['email_exists','user_already_exists'].includes(error?.code) || /User already registered/i.test(text)) return '这个邮箱已注册，请直接登录。忘记密码时可点击「忘记密码」。';
+    if (error?.status === 429 || /rate limit|too many requests/i.test(text)) return '请求过于频繁，请稍后再试。';
     if (/Email address.*invalid|email.*not.*authorized/i.test(text)) return '邮件服务没有接受此邮箱。请先使用注册 Supabase 时的邮箱，或配置自己的邮件服务。';
     if (/fetch|network/i.test(text)) return '网络连接失败，请检查网络后重试。';
     return text;
   }
   async function perform(action) {
     if (!ready || !client) throw new Error('登录服务尚未加载，请稍后重试或刷新页面。');
-    accountMessage('正在处理…');
+    accountMessage(action === 'sign-in' ? recovery ? '正在更新密码…' : '正在登录…' : action === 'sign-up' ? '正在提交注册…' : action === 'forgot' ? '正在请求重置密码邮件…' : '正在处理…');
     const email = $('#auth-email').value.trim(), password = $('#auth-password').value;
     const redirectTo = config.siteUrl || new URL('.',location.href).href;
     if (action === 'sign-in') {
@@ -141,17 +223,19 @@
         recovery = false; accountUI(); accountMessage('密码已更新。'); $('#auth-password').value = ''; return;
       }
       const {error} = await client.auth.signInWithPassword({email,password}); if (error) throw error;
-      $('#auth-password').value = ''; accountMessage('已登录，正在读取你的云端记录。');
+      $('#auth-password').value = ''; accountMessage('登录成功，正在同步你的手账。');
     } else if (action === 'sign-up') {
       if (!$('#auth-form').reportValidity()) return;
       if (password.length < 8) throw new Error('注册密码至少 8 位，请使用自己能妥善保存的密码。');
       const {data,error} = await client.auth.signUp({email,password,options:{emailRedirectTo:redirectTo}}); if (error) throw error;
       $('#auth-password').value = '';
-      accountMessage(data.session ? '账号已创建，正在读取记录。' : '请检查邮箱并点击验证链接，然后回到此页登录。默认邮件服务有限制，建议先使用注册 Supabase 时的邮箱。');
+      if (!data.session) { rememberVerification(email); waitForMail(60); }
+      accountMessage(data.session ? '账号已创建，正在读取记录。' : '注册申请已提交。请打开邮箱的收件箱或垃圾邮件，点击验证邮件中的确认链接，再回到这里点击「登录」，无需再次注册。');
     } else if (action === 'forgot') {
       if (!email || !$('#auth-email').checkValidity()) throw new Error('先填写有效的邮箱地址，再重置密码。');
       const {error} = await client.auth.resetPasswordForEmail(email,{redirectTo}); if (error) throw error;
-      accountMessage('如果该邮箱已注册，会收到重置密码邮件。请打开邮件链接设置新密码。');
+      waitForMail(60);
+      accountMessage('如果该邮箱已注册，会收到重置密码邮件。请检查收件箱和垃圾邮件，打开邮件链接设置新密码。');
     } else if (action === 'sign-out') {
       if (!await callbacks.confirm('退出此账号？本机缓存和已上传的云端记录都会保留；等待上传的记录下次登录会继续同步。','退出账号')) return;
       const {error} = await client.auth.signOut({scope:'local'}); if (error) throw error;
@@ -181,7 +265,17 @@
   async function init(hooks) {
     callbacks = hooks; accountUI(); status(currentStatus);
     $('#account-btn').addEventListener('click',() => { const d = $('#account'); if (!d.open) d.showModal(); });
-    async function action(name) { try { await perform(name); } catch (e) { accountMessage(translate(e),true); } }
+    restoreMailWait(); restoreVerification();
+    $('#auth-email').addEventListener('input',verificationUI);
+    async function action(name) {
+      const authRequest = ['sign-in','sign-up','forgot'].includes(name);
+      if (authRequest && authBusy) return;
+      if (['sign-up','forgot'].includes(name) && mailSeconds()) return;
+      if (authRequest) { authBusy = true; showMailCountdown = false; authButtons(); }
+      try { await perform(name); }
+      catch (e) { accountMessage(translate(e),true); }
+      finally { if (authRequest) { authBusy = false; authButtons(); } }
+    }
     $('#auth-form').addEventListener('submit',e => { e.preventDefault(); action('sign-in'); });
     $('#account').addEventListener('click',e => { const b = e.target.closest('[data-cloud-action]'); if (b) action(b.dataset.cloudAction); });
     if (!config.url || !config.publishableKey) return accountMessage('此版本尚未配置云同步，原有本机记录仍可使用。');

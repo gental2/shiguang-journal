@@ -45,7 +45,7 @@
       <label id="auth-email-field">邮箱<input id="auth-email" type="email" required autocomplete="email" maxlength="254" placeholder="常用邮箱"></label>
       <label>密码<input id="auth-password" type="password" required minlength="8" maxlength="128" autocomplete="current-password" placeholder="至少 8 位"></label>
       <div class="auth-actions"><button id="auth-submit" class="btn primary" type="submit">登录</button><div id="auth-extra"><button type="button" class="btn secondary" data-cloud-action="sign-up">注册新账号</button><button type="button" class="text-btn" data-cloud-action="forgot">忘记密码</button></div></div>
-    </form></div>
+    </form><div id="verification-status" class="backup-info" role="status" hidden><strong id="verification-heading"></strong><p id="verification-description"></p></div></div>
     <div id="account-member" hidden>
       <p class="account-email" id="account-email"></p>
       <div class="account-toolbar"><button class="btn primary" data-cloud-action="sync">立即同步</button><button class="btn secondary" data-cloud-action="legacy">导入此浏览器旧记录</button><button class="btn secondary" data-cloud-action="history">下载云端历史备份</button><button class="text-btn" data-cloud-action="sign-out">退出账号</button></div>
