@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#f6f5ee">
+  <meta name="description" content="拾光：记录学习感悟，把想做的事写进人生清单，让每一次成长都被看见。支持私有账号云同步、离线缓存、备份和清单长图。">
+  <title>拾光 · 学习与人生手账</title>
+  <link rel="icon" type="image/svg+xml" href="./favicon.svg">
+  <link rel="stylesheet" href="./styles.css">
+  <script defer src="./core.js"></script>
+  <script defer src="./sync-core.js"></script>
+  <script defer src="./cloud-config.js"></script>
+  <script defer src="./cloud.js"></script>
+  <script defer src="./app.js"></script>
+</head>
+<body>
+  <a class="skip" href="#main">跳到内容</a>
+  <header class="site-header">
+    <div class="brand"><span class="brand-mark" aria-hidden="true">拾</span><div><strong>拾光</strong><span class="brand-sub">A LITTLE EVERY DAY</span></div></div>
+    <nav aria-label="主导航"><button class="nav active" data-view="home" aria-current="page">我的日常</button><button class="nav" data-view="notes">学习感悟</button><button class="nav" data-view="goals">人生清单</button></nav>
+    <div class="header-actions"><button class="btn secondary account-btn" id="account-btn">登录同步</button><button class="icon-btn" id="theme-btn" aria-label="切换深浅主题" title="切换深浅主题">◐</button><button class="icon-btn" id="backup-btn" aria-label="数据与备份" title="数据与备份">↗</button></div>
+  </header>
+  <div id="cloud-strip" class="cloud-strip" data-state="local"><span class="sync-dot" aria-hidden="true"></span><span id="cloud-status" role="status" aria-live="polite">未登录 · 记录保存在此浏览器</span></div>
+  <div id="storage-warning" class="warning" role="alert" hidden></div>
+  <main id="main" tabindex="-1">
+    <section class="hero" id="hero">
+      <div class="hero-copy"><div class="eyebrow"><span></span> 给成长留一点空间</div><h1>慢慢来，<br>每一步<span class="serif-accent">都算数。</span></h1><p>把学到的、想到的，和想去经历的，<br>放在这里。过一阵子，再回头看看自己。</p><div class="hero-actions"><button class="btn primary" data-action="new-note">＋ 写下此刻</button><button class="btn secondary" data-action="new-goal">添加一件想做的事 ↗</button></div><div class="hero-date" id="today-label"></div></div>
+      <div class="hero-art" aria-hidden="true"><svg viewBox="0 0 420 340" fill="none"><circle cx="231" cy="143" r="102" fill="#e9e6d8"/><circle cx="231" cy="143" r="81" stroke="#b8c3ad" stroke-dasharray="3 9"/><circle cx="272" cy="111" r="24" fill="#dbab83"/><path d="M54 261C93 228 118 241 153 206C180 178 197 221 226 189C251 164 269 206 297 198C331 188 335 233 372 223" stroke="#43634d" stroke-width="2"/><path d="M65 280C109 250 129 258 177 236C219 217 243 256 287 238C323 223 342 264 380 252" stroke="#7a9372" stroke-width="1.5"/><path d="M93 296H356" stroke="#abb69d"/><path d="M111 257V170M111 195C90 185 91 169 92 167C109 166 114 177 111 195ZM111 217C131 206 133 191 129 187C115 193 111 199 111 217Z" stroke="#6c8462" stroke-width="2"/><path d="M340 231V157M340 175C323 164 325 152 327 149C338 151 342 160 340 175ZM340 197C358 189 361 175 357 172C345 175 339 184 340 197Z" stroke="#6c8462" stroke-width="2"/><path d="M117 105L132 94L147 103M161 82L170 75L181 82" stroke="#9d9f84" stroke-width="1.5"/><circle cx="350" cy="89" r="3" fill="#c2ab89"/><circle cx="78" cy="226" r="3" fill="#c2ab89"/><path d="M165 302Q232 311 296 302" stroke="#d6cbb8"/></svg><div class="art-caption">收集微小的光，也成为自己的光。</div></div>
+    </section>
+    <section class="stats" aria-label="我的记录统计"><div><span class="stat-icon">✎</span><div><strong id="stat-notes">0</strong><span>篇感悟，留给未来的自己</span></div></div><div><span class="stat-icon">☑</span><div><strong><span id="stat-done">0</span><small> / <span id="stat-total">0</span></small></strong><span>件心愿，正在变成回忆</span></div></div><div><span class="stat-icon">↗</span><div><strong id="stat-doing">0</strong><span>件事情，正在认真尝试</span></div></div></section>
+    <div class="section-heading" id="section-heading"><div><div class="eyebrow">NOTES & LITTLE WISHES</div><h2 id="view-title">最近的日常</h2><p id="view-description">写下来，是为了记得；去做，是为了经历。</p></div><div class="section-actions"><button class="btn secondary" id="preview-btn">▦ 清单全景 / 长图</button><button class="btn primary" id="create-btn">＋ 新感悟</button></div></div>
+    <div class="tools"><label class="search"><span aria-hidden="true">⌕</span><input type="search" id="search-input" placeholder="找一段感悟，或一件想做的事…" aria-label="搜索记录"></label><div class="filters" id="filters" aria-label="筛选记录"></div><select id="sort-select" aria-label="排序"><option value="newest">最近更新</option><option value="oldest">最早记录</option></select></div>
+    <div class="content-grid" id="content-grid"><section id="records" aria-label="记录列表"></section><aside id="sidebar"></aside></div>
+    <footer><span>拾光 · 在普通的日子里，慢慢成为自己。</span><button id="footer-backup">保存在此浏览器 · 导出备份 ↗</button></footer>
+  </main>
+  <dialog id="editor" aria-labelledby="editor-title"><form id="editor-form"><div class="dialog-heading"><div><div class="eyebrow" id="editor-eyebrow">A MOMENT TO REMEMBER</div><h2 id="editor-title">写一篇感悟</h2></div><button type="button" class="icon-btn" data-close="editor" aria-label="关闭编辑">×</button></div><input type="hidden" id="edit-id"><input type="hidden" id="edit-kind"><label>标题<input id="edit-title" required maxlength="120" placeholder="给此刻的想法起个名字"></label><div class="form-row"><label>分类<select id="edit-category"></select></label><label id="date-field">记录日期<input type="date" id="edit-date"></label><label id="mood-field">此刻心情<select id="edit-mood"></select></label></div><div id="note-fields"><label>我的感悟<textarea id="edit-content" rows="9" maxlength="20000" placeholder="今天学到了什么？哪里让我恍然大悟？&#10;下次，我想试着怎么做？"></textarea></label><label>标签 <span class="muted">用逗号分隔，最多 8 个</span><input id="edit-tags" maxlength="210" placeholder="例如：读书, 自我成长, 一点点进步"></label></div><div id="goal-fields" hidden><div class="form-row"><label>当前状态<select id="edit-status"><option value="planned">想去做</option><option value="doing">正在做</option><option value="done">已完成</option></select></label><label>想在这之前完成 <span class="muted">可选</span><input type="date" id="edit-due"></label></div><label>为什么想做？<textarea id="edit-description" rows="3" maxlength="5000" placeholder="这件事对我有什么意义…"></textarea></label><label>下一小步<input id="edit-next" maxlength="300" placeholder="例如：选一个周末，查好路线"></label><label>完成后的心得 <span class="muted">可选</span><textarea id="edit-reflection" rows="3" maxlength="5000" placeholder="经历之后，我想记住什么…"></textarea></label></div><p class="form-error" id="editor-error" role="alert" hidden></p><div class="dialog-footer"><span class="muted" id="draft-hint">新感悟会自动保存草稿</span><div><button type="button" class="btn secondary" data-close="editor">暂时放下</button><button type="submit" class="btn primary">保存记录 ↗</button></div></div></form></dialog>
+  <dialog id="reader" aria-labelledby="reader-title"><div class="dialog-heading"><div><div class="eyebrow" id="reader-meta"></div><h2 id="reader-title"></h2></div><button class="icon-btn" data-close="reader" aria-label="关闭感悟">×</button></div><div id="reader-tags"></div><div id="reader-content" class="reading"></div><div class="dialog-footer"><span id="reader-date" class="muted"></span><button id="reader-edit" class="btn primary">编辑这篇感悟</button></div></dialog>
+  <dialog id="preview" class="preview-dialog" aria-labelledby="preview-title"><div class="dialog-heading"><div><div class="eyebrow">MY LIFE, IN LITTLE PIECES</div><h2 id="preview-title">人生清单 · 全景</h2></div><button class="icon-btn" data-close="preview" aria-label="关闭清单预览">×</button></div><div class="preview-controls"><label>长图标题<input id="snapshot-title" maxlength="50" value="我的人生清单"></label><fieldset class="palette-field"><legend>完成事项的颜色</legend><div id="palettes"></div></fieldset></div><div class="preview-hint"><span>全部人生事项 · 已完成的会高亮</span><button id="image-export" class="btn primary">↓ 生成长图 PNG</button></div><div class="snapshot-paper" id="snapshot-paper"><h3 id="snapshot-heading">我的人生清单</h3><p id="snapshot-counter"></p><div class="progress-track"><span id="snapshot-progress"></span></div><div id="snapshot-chips"></div><p class="paper-footer">每一种经历，都在慢慢拼出我。</p></div><div id="image-results"></div></dialog>
+  <dialog id="backup" aria-labelledby="backup-title"><div class="dialog-heading"><div><div class="eyebrow">KEEP YOUR LITTLE LIGHTS SAFE</div><h2 id="backup-title">数据与备份</h2></div><button class="icon-btn" data-close="backup" aria-label="关闭备份">×</button></div><div class="backup-info"><strong>这些记录属于你。</strong><p id="backup-info-text">未登录时记录保存在此浏览器，登录后可以导入私有云端账号。</p></div><div class="backup-actions"><button class="backup-card" id="export-btn"><strong>↓ 导出备份</strong><span>下载所有感悟和人生清单，保存为 JSON 文件</span></button><button class="backup-card" id="import-btn"><strong>↑ 导入备份</strong><span>合并记录；相同 ID 保留更新时间较新的内容</span></button></div><input type="file" id="import-file" accept=".json,application/json" hidden><div class="backup-status" id="backup-status" role="status"></div><p class="muted">备份会包含你写下的全部内容，请保存在自己信任的位置。</p><div class="dialog-footer"><span class="muted" id="backup-storage-label">未登录 · 本机保存</span><button id="recovery-btn" class="btn secondary" hidden>下载未能读取的原始数据</button><button class="btn primary" data-close="backup">我知道了</button></div></dialog>
+  <dialog id="account" aria-labelledby="account-title">
+    <div class="dialog-heading"><div><div class="eyebrow">YOUR LITTLE LIGHTS, EVERYWHERE</div><h2 id="account-title">我的账号 · 云同步</h2></div><button class="icon-btn" data-close="account" aria-label="关闭账号">×</button></div>
+    <p class="muted" id="account-local-hint">登录后，可以在不同设备查看同一份手账。</p>
+    <div id="account-guest"><form id="auth-form">
+      <label id="auth-email-field">邮箱<input id="auth-email" type="email" required autocomplete="email" maxlength="254" placeholder="常用邮箱"></label>
+      <label>密码<input id="auth-password" type="password" required minlength="8" maxlength="128" autocomplete="current-password" placeholder="至少 8 位"></label>
+      <div class="auth-actions"><button id="auth-submit" class="btn primary" type="submit">登录</button><div id="auth-extra"><button type="button" class="btn secondary" data-cloud-action="sign-up">注册新账号</button><button type="button" class="text-btn" data-cloud-action="forgot">忘记密码</button></div></div>
+    </form></div>
+    <div id="account-member" hidden>
+      <p class="account-email" id="account-email"></p>
+      <div class="account-toolbar"><button class="btn primary" data-cloud-action="sync">立即同步</button><button class="btn secondary" data-cloud-action="legacy">导入此浏览器旧记录</button><button class="btn secondary" data-cloud-action="history">下载云端历史备份</button><button class="text-btn" data-cloud-action="sign-out">退出账号</button></div>
+      <section id="cloud-conflicts" class="conflict-box" hidden><h3>同一条记录有不同修改</h3><p>先导出当前记录留一份备份，再选择冲突内容。其他记录会自动合并。</p><ul id="conflict-list"></ul><div class="auth-actions"><button class="btn secondary" data-cloud-action="resolve-local">冲突采用本机内容</button><button class="btn secondary" data-cloud-action="resolve-remote">冲突采用云端内容</button></div></section>
+      <div id="cloud-history" class="history-list"></div>
+    </div>
+    <p id="account-message" role="status" aria-live="polite"></p>
+    <p id="account-sync-status" class="muted"></p>
+    <button id="cloud-recover" class="btn secondary" data-cloud-action="recover" hidden>下载未能读取的原始账号缓存</button>
+    <div class="backup-info"><strong>你的记录，只属于你的账号。</strong><p>网站代码可以公开，手账内容保存在独立数据库中，只有登录本人账号才能读取。网站更新会继续使用已有记录。草稿和配色保存在此设备。</p></div>
+  </dialog>
+  <dialog id="confirm" aria-labelledby="confirm-title"><div class="dialog-heading"><h2 id="confirm-title">确认操作</h2></div><p id="confirm-message"></p><div class="dialog-footer"><button id="confirm-no" class="btn secondary">取消</button><button id="confirm-yes" class="btn primary">确认</button></div></dialog>
+  <div id="toast" class="toast" role="status" aria-live="polite" hidden><span id="toast-text"></span><button id="undo-btn" hidden>撤销</button></div>
+  <noscript><div class="warning">请开启浏览器 JavaScript，才能保存感悟和使用人生清单。</div></noscript>
+</body>
+</html>

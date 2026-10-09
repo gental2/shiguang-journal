@@ -1,0 +1,54 @@
+name: Test and deploy journal
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+concurrency:
+  group: journal-pages
+  cancel-in-progress: true
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Validate data and synchronization
+        run: npm test
+      - name: Install browser test runtime
+        run: |
+          npm install --prefix "$RUNNER_TEMP/journal-browser" --no-save --package-lock=false playwright@1.56.1
+          "$RUNNER_TEMP/journal-browser/node_modules/.bin/playwright" install --with-deps chromium
+      - name: Check journal in Chromium
+        env:
+          JOURNAL_PLAYWRIGHT_PATH: ${{ runner.temp }}/journal-browser/node_modules/playwright
+        run: npm run test:browser
+  build:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Prepare static website
+        run: |
+          mkdir _site
+          cp index.html core.js sync-core.js cloud-config.js cloud.js app.js styles.css favicon.svg _site/
+          touch _site/.nojekyll
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/deploy-pages@v4
+        id: deployment
